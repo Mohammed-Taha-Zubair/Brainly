@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { json } from "express";
 import mongoose from "mongoose";
+import { UserModel } from "./db.js";
 
 const app = express();
 app.use(express.json());
@@ -18,7 +19,25 @@ const connectDB = async () => {
 
 connectDB();
 
-app.post("/api/v1/signup", (req, res) => {});
+app.post("/api/v1/signup", async (req, res) => {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  try {
+    await UserModel.create({
+      username: username,
+      password: password,
+    });
+
+    res.json({
+      messaage: "User signed in",
+    });
+  } catch (e) {
+    res.status(411).json({
+      message: "user already exists",
+    });
+  }
+});
 
 app.post("/api/v1/signin", (req, res) => {});
 
