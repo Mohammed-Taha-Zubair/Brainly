@@ -1,10 +1,11 @@
 import "dotenv/config";
-import express, { json } from "express";
+import express from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { UserModel } from "./db.js";
+import { ContentModel, UserModel } from "./db.js";
+import { JWT_PAssword } from "./config.js";
+import { userMiddleWare } from "./middleware.js";
 
-const JWT_PAssword = "12452y26534";
 
 const app = express();
 app.use(express.json());
@@ -33,11 +34,11 @@ app.post("/api/v1/signup", async (req, res) => {
     });
 
     res.json({
-      message: "User signed in",
+      message: "User signed up",
     });
   } catch (e) {
     res.status(411).json({
-      message: "user already exists",
+      message: "User already exists",
     });
   }
 });
@@ -48,8 +49,8 @@ app.post("/api/v1/signin", async (req, res) => {
   const existingUser = await UserModel.findOne({ username, password });
 
   if (!existingUser) {
-    res.status(401).json({
-      message: "User Already exists",
+    res.status(403).json({
+      message: "Incorrect credentials",
     });
     return;
   }
@@ -59,20 +60,73 @@ app.post("/api/v1/signin", async (req, res) => {
   });
 });
 
-app.post("/api/v1/content", (req, res) => {
+app.post("/api/v1/content", userMiddleWare, async (req, res) => {
   const title = req.body.title;
-  const type = req.body.type;
   const link = req.body.link;
+  const tags = req.body.tags;
+
+  if (!req.userId) {
+    res.status(403).json({
+      message: "You are not logged in",
+    });
+    return;
+  }
+
+  await ContentModel.create({
+    title,
+    link,
+    tag: tags || [],
+    userId: req.userId,
+  });
+
+  res.json({
+    message: "Content added",
+  });
 });
 
-app.get("/api/v1/content", (req, res) => { });
+app.get("/api/v1/content", userMiddleWare, async (req, res) => {
+  if (!req.userId) {
+    res.status(403).json({
+      message: "You are not logged in",
+    });
+    return;
+  }
 
-app.delete("/api/v1/content", (req, res) => { });
+  const content = await ContentModel.find({
+    userId: req.userId,
+  }).populate("userId", "username");
 
-app.post("/api/v1/brain/share", (req, res) => { });
+  res.json({
+    content,
+  });
+});
 
-app.get("/api/v1/brain/shareLink", (req, res) => { });
+app.delete("/api/v1/content", userMiddleWare, async (req, res) => {
+  const contentId = req.body.contentId;
+
+  if (!req.userId) {
+    res.status(403).json({
+      message: "You are not logged in",
+    });
+    return;
+  }
+
+  await ContentModel.deleteMany({
+    _id: contentId,
+    userId: req.userId,
+  });
+
+  res.json({
+    message: "Deleted",
+  });
+});
+
+app.post("/api/v1/brain/share", (req, res) => {});
+
+app.get("/api/v1/brain/shareLink", (req, res) => {});
 
 app.listen(3000, () => {
   console.log("server started at port:3000");
 });
+
+

@@ -13,7 +13,20 @@ const contentSchema = new Schema({
   title: String,
   link: String,
   tag: [{ type: moongoose.Types.ObjectId, ref: "Tag" }],
-  userId: [{ type: moongoose.Types.ObjectId, ref: "User", required: true }],
+  userId: { type: moongoose.Types.ObjectId, ref: "User", required: true },
 });
 
 export const ContentModel = model("Content", contentSchema);
+
+const LinkSchema = new Schema({
+  hash: String,
+  userId: {
+    type: moongoose.Types.ObjectId,
+    ref: "User",
+    required: true,
+    unique: true,
+  },
+});
+
+export const LinkModel = model("Links", LinkSchema);
+
