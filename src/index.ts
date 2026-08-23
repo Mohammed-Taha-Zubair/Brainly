@@ -2,8 +2,8 @@ import "dotenv/config";
 import express from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { ContentModel, UserModel } from "./db.js";
 import { JWT_PAssword } from "./config.js";
+import { ContentModel, UserModel } from "./db.js";
 import { userMiddleWare } from "./middleware.js";
 
 
@@ -121,7 +121,9 @@ app.delete("/api/v1/content", userMiddleWare, async (req, res) => {
   });
 });
 
-app.post("/api/v1/brain/share", (req, res) => {});
+app.post("/api/v1/brain/share", (req, res) => {
+  const share = req.body.share
+});
 
 app.get("/api/v1/brain/shareLink", (req, res) => {});
 
