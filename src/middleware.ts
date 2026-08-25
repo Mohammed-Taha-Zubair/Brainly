@@ -7,28 +7,49 @@ export const userMiddleWare = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const header = req.headers["authorization"];
+  const rawHeader = req.headers["authorization"] || req.headers["token"];
 
-  if (!header) {
+  if (!rawHeader) {
     res.status(403).json({
-      message: "You are not logged in",
+      message: "Authorization header missing. Pass token in 'Authorization' or 'token' header.",
+    });
+    return;
+  }
+
+  const headerStr = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+
+  if (!headerStr) {
+    res.status(403).json({
+      message: "Authorization header is empty.",
+    });
+    return;
+  }
+
+  const token = headerStr.startsWith("Bearer ")
+    ? headerStr.slice(7).trim()
+    : headerStr.trim();
+
+  if (!token) {
+    res.status(403).json({
+      message: "Token is empty.",
     });
     return;
   }
 
   try {
-    const decoded = jwt.verify(header as string, JWT_PAssword);
+    const decoded = jwt.verify(token, JWT_PAssword);
     if (decoded && typeof decoded === "object" && "id" in decoded) {
       req.userId = (decoded as JwtPayload).id as string;
       next();
     } else {
       res.status(403).json({
-        message: "You are not logged in",
+        message: "Invalid token payload.",
       });
     }
-  } catch (e) {
+  } catch (e: any) {
+    console.error("JWT verification error:", e?.message);
     res.status(403).json({
-      message: "You are not logged in",
+      message: `Authentication failed: ${e?.message || "Invalid token"}`,
     });
   }
 };

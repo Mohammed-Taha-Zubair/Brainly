@@ -3,9 +3,9 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { JWT_PAssword } from "./config.js";
-import { ContentModel, UserModel } from "./db.js";
+import { ContentModel, LinkModel, UserModel } from "./db.js";
 import { userMiddleWare } from "./middleware.js";
-
+import { random } from "./utils.js";
 
 const app = express();
 app.use(express.json());
@@ -13,122 +13,154 @@ app.use(express.json());
 const mongoURI = process.env.MONGO_URI;
 
 if (!mongoURI) {
-  throw new Error("MONGO_URI environment variable is missing");
+    throw new Error("MONGO_URI environment variable is missing");
 }
 
 const connectDB = async () => {
-  await mongoose.connect(mongoURI);
-  console.log("Connected to MongoDB");
+    await mongoose.connect(mongoURI);
+    console.log("Connected to MongoDB");
 };
 
 connectDB();
 
 app.post("/api/v1/signup", async (req, res) => {
-  const username = req.body.username;
-  const password = req.body.password;
+    const username = req.body.username;
+    const password = req.body.password;
 
-  try {
-    await UserModel.create({
-      username: username,
-      password: password,
-    });
+    try {
+        await UserModel.create({
+            username: username,
+            password: password,
+        });
 
-    res.json({
-      message: "User signed up",
-    });
-  } catch (e) {
-    res.status(411).json({
-      message: "User already exists",
-    });
-  }
+        res.json({
+            message: "User signed up",
+        });
+    } catch (e) {
+        res.status(411).json({
+            message: "User already exists",
+        });
+    }
 });
 
 app.post("/api/v1/signin", async (req, res) => {
-  const username = req.body.username;
-  const password = req.body.password;
-  const existingUser = await UserModel.findOne({ username, password });
+    const username = req.body.username;
+    const password = req.body.password;
+    const existingUser = await UserModel.findOne({ username, password });
 
-  if (!existingUser) {
-    res.status(403).json({
-      message: "Incorrect credentials",
+    if (!existingUser) {
+        res.status(403).json({
+            message: "Incorrect credentials",
+        });
+        return;
+    }
+    const token = jwt.sign({ id: existingUser._id }, JWT_PAssword);
+    res.status(200).json({
+        token: token,
     });
-    return;
-  }
-  const token = jwt.sign({ id: existingUser._id }, JWT_PAssword);
-  res.status(200).json({
-    token: token,
-  });
 });
 
 app.post("/api/v1/content", userMiddleWare, async (req, res) => {
-  const title = req.body.title;
-  const link = req.body.link;
-  const tags = req.body.tags;
+    const title = req.body.title;
+    const link = req.body.link;
+    const tags = req.body.tags;
 
-  if (!req.userId) {
-    res.status(403).json({
-      message: "You are not logged in",
+    if (!req.userId) {
+        res.status(403).json({
+            message: "You are not logged in",
+        });
+        return;
+    }
+
+    await ContentModel.create({
+        title,
+        link,
+        tag: tags || [],
+        userId: req.userId,
     });
-    return;
-  }
 
-  await ContentModel.create({
-    title,
-    link,
-    tag: tags || [],
-    userId: req.userId,
-  });
-
-  res.json({
-    message: "Content added",
-  });
+    res.json({
+        message: "Content added",
+    });
 });
 
 app.get("/api/v1/content", userMiddleWare, async (req, res) => {
-  if (!req.userId) {
-    res.status(403).json({
-      message: "You are not logged in",
+    if (!req.userId) {
+        res.status(403).json({
+            message: "You are not logged in",
+        });
+        return;
+    }
+
+    const content = await ContentModel.findOne({
+        userId: req.userId,
+    }).populate("userId", "username");
+
+    res.json({
+        content,
     });
-    return;
-  }
-
-  const content = await ContentModel.find({
-    userId: req.userId,
-  }).populate("userId", "username");
-
-  res.json({
-    content,
-  });
 });
 
 app.delete("/api/v1/content", userMiddleWare, async (req, res) => {
-  const contentId = req.body.contentId;
+    const contentId = req.body.contentId;
 
-  if (!req.userId) {
-    res.status(403).json({
-      message: "You are not logged in",
+    if (!req.userId) {
+        res.status(403).json({
+            message: "You are not logged in",
+        });
+        return;
+    }
+
+    await ContentModel.deleteMany({
+        _id: contentId,
+        userId: req.userId,
     });
-    return;
-  }
 
-  await ContentModel.deleteMany({
-    _id: contentId,
-    userId: req.userId,
-  });
-
-  res.json({
-    message: "Deleted",
-  });
+    res.json({
+        message: "Deleted",
+    });
 });
 
-app.post("/api/v1/brain/share", (req, res) => {
-  const share = req.body.share
+app.post("/api/v1/brain/share", userMiddleWare, async (req, res) => {
+    const share = req.body.share;
+    if (!req.userId) {
+        res.status(403).json({
+            message: "You are not logged in",
+        });
+        return;
+    }
+    if (share) {
+        await LinkModel.create({
+            hash: random(10),
+            userId: req.userId,
+        });
+    } else {
+        await LinkModel.deleteOne({
+            userId: req.userId,
+        });
+    }
 });
 
-app.get("/api/v1/brain/shareLink", (req, res) => {});
+app.get("/api/v1/brain/:shareLink", async (req, res) => {
+    const hash = req.params.shareLink;
+    const link = await LinkModel.findOne({ hash });
+    if (!link) {
+        res.status(404).json({
+            message: "incorrect link",
+        });
+        return;
+    }
+
+    const user = await UserModel.findOne({ _id: link.userId });
+    const content = await ContentModel.find({
+        userId: link.userId,
+    });
+    res.json({
+        username: user?.username,
+        content: content,
+    });
+});
 
 app.listen(3000, () => {
-  console.log("server started at port:3000");
+    console.log("server started at port:3000");
 });
-
-

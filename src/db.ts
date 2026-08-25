@@ -1,32 +1,35 @@
-import moongoose, { model, Schema } from "mongoose";
 import * as dotenv from "dotenv";
+import moongoose, { model, Schema } from "mongoose";
 dotenv.config();
 
 const UserSchema = new Schema({
-  username: { type: String, unique: true },
-  password: String,
+    username: { type: String, unique: true },
+    password: String,
 });
 
 export const UserModel = model("User", UserSchema);
 
 const contentSchema = new Schema({
-  title: String,
-  link: String,
-  tag: [{ type: moongoose.Types.ObjectId, ref: "Tag" }],
-  userId: { type: moongoose.Types.ObjectId, ref: "User", required: true },
+    title: String,
+    link: String,
+    tag: [{ type: moongoose.Types.ObjectId, ref: "Tag" }],
+    userId: { type: moongoose.Types.ObjectId, ref: "User", required: true },
 });
 
 export const ContentModel = model("Content", contentSchema);
 
 const LinkSchema = new Schema({
-  hash: String,
-  userId: {
-    type: moongoose.Types.ObjectId,
-    ref: "User",
-    required: true,
-    unique: true,
-  },
+    hash: String,
+    userId: {
+        type: moongoose.Types.ObjectId,
+        ref: "User",
+        required: true,
+        unique: true,
+    },
 });
 
 export const LinkModel = model("Links", LinkSchema);
 
+const Tag = new Schema({
+    tags: [],
+});
